@@ -1,10 +1,55 @@
 <?php
 session_start();
+include '../config/koneksi.php';
+include '../config/alert.php';
 
 if(!isset($_SESSION['login'])){
     header("Location: login.php");
     exit;
 }
+
+$q = isset($_GET['q']) ? trim($_GET['q']) : '';
+$jenis = isset($_GET['jenis']) ? $_GET['jenis'] : 'all';
+$from = isset($_GET['from']) ? $_GET['from'] : '';
+$to = isset($_GET['to']) ? $_GET['to'] : '';
+
+$conditions = [];
+if($q !== ''){
+    $safe = mysqli_real_escape_string($conn, $q);
+    $conditions[] = "(r.keterangan LIKE '%$safe%' OR b.nama_barang LIKE '%$safe%' OR u.nama LIKE '%$safe%')";
+}
+
+if($jenis !== 'all'){
+    switch($jenis){
+        case 'tambah':
+            $conditions[] = "r.keterangan LIKE '%ditambahkan%'";
+            break;
+        case 'edit':
+            $conditions[] = "(r.keterangan LIKE '%diubah%' OR r.keterangan LIKE '%diperbarui%')";
+            break;
+        case 'hapus':
+            $conditions[] = "r.keterangan LIKE '%dihapus%'";
+            break;
+        case 'peminjaman':
+            $conditions[] = "r.keterangan LIKE '%dipinjam%'";
+            break;
+        case 'pengembalian':
+            $conditions[] = "r.keterangan LIKE '%dikembalikan%'";
+            break;
+    }
+}
+
+$where = '';
+if(count($conditions) > 0){
+    $where = 'WHERE ' . implode(' AND ', $conditions);
+}
+
+$activities = mysqli_query($conn, "SELECT r.*, b.nama_barang, u.nama AS peminjam, p.status FROM riwayat r LEFT JOIN peminjaman p ON r.id_peminjaman = p.id_peminjaman LEFT JOIN barang b ON p.id_barang = b.id_barang LEFT JOIN users u ON p.id_user = u.id_user $where ORDER BY r.created_at DESC, r.tanggal DESC LIMIT 100");
+
+$summaryTotal = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM riwayat"))['total'];
+$summaryToday = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM riwayat WHERE tanggal = CURDATE()"))['total'];
+$summaryAdded = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM riwayat WHERE keterangan LIKE '%ditambahkan%'") )['total'];
+$summaryDeleted = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM riwayat WHERE keterangan LIKE '%dihapus%'") )['total'];
 ?>
 
 <!DOCTYPE html>
@@ -153,6 +198,12 @@ if(!isset($_SESSION['login'])){
             border: none;
         }
 
+        .activity-list {
+            max-height: 520px;
+            overflow-y: auto;
+            padding-right: 8px;
+        }
+
         @media (max-width: 991.98px) {
             #sidebar { margin-left: calc(-1 * var(--sidebar-width)); }
             #main-content { margin-left: 0; }
@@ -215,26 +266,32 @@ if(!isset($_SESSION['login'])){
     <!-- Filter Section -->
     <div class="col-12">
         <div class="card">
-            <div class="card-body d-flex flex-wrap gap-3 justify-content-between">
+            <form class="d-flex flex-wrap gap-3 justify-content-between" method="GET" action="riwayat.php">
 
-                <div class="d-flex gap-2">
-                    <select class="form-select">
-                        <option>Semua Aktivitas</option>
-                        <option>Tambah Barang</option>
-                        <option>Edit Barang</option>
-                        <option>Hapus Barang</option>
-                        <option>Peminjaman</option>
+                <div class="d-flex gap-2 flex-wrap">
+                    <input type="text" name="q" class="form-control" placeholder="Cari aktivitas atau nama barang..." value="<?= htmlspecialchars($q); ?>">
+
+                    <select class="form-select" name="jenis">
+                        <option value="all" <?= $jenis === 'all' ? 'selected' : ''; ?>>Semua Aktivitas</option>
+                        <option value="tambah" <?= $jenis === 'tambah' ? 'selected' : ''; ?>>Tambah Barang</option>
+                        <option value="edit" <?= $jenis === 'edit' ? 'selected' : ''; ?>>Edit Barang</option>
+                        <option value="hapus" <?= $jenis === 'hapus' ? 'selected' : ''; ?>>Hapus Barang</option>
+                        <option value="peminjaman" <?= $jenis === 'peminjaman' ? 'selected' : ''; ?>>Peminjaman</option>
+                        <option value="pengembalian" <?= $jenis === 'pengembalian' ? 'selected' : ''; ?>>Pengembalian</option>
                     </select>
 
-                    <input type="date" class="form-control">
-                    <input type="date" class="form-control">
+                    <input type="date" name="from" class="form-control" value="<?= htmlspecialchars($from); ?>">
+                    <input type="date" name="to" class="form-control" value="<?= htmlspecialchars($to); ?>">
                 </div>
 
-                <button class="btn btn-outline-secondary">
-                    <i class="bi bi-funnel"></i> Terapkan Filter
-                </button>
+                <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="bi bi-funnel"></i> Terapkan Filter
+                    </button>
+                    <a href="riwayat.php" class="btn btn-light">Reset</a>
+                </div>
 
-            </div>
+            </form>
         </div>
     </div>
 
@@ -245,68 +302,54 @@ if(!isset($_SESSION['login'])){
 
                 <h5 class="fw-bold mb-4">Log Aktivitas</h5>
 
-                <div class="d-flex flex-column gap-4">
+                <div class="activity-list d-flex flex-column gap-4">
+                    <?php if(mysqli_num_rows($activities) > 0): ?>
+                        <?php while($activity = mysqli_fetch_assoc($activities)): ?>
+                            <?php
+                                $label = 'Aktivitas';
+                                $icon = 'bi-arrow-repeat';
+                                $circleClass = 'bg-warning-subtle text-warning';
+                                $text = htmlspecialchars($activity['keterangan']);
 
-                    <!-- Item 1 -->
-                    <div class="d-flex gap-3">
-                        <div class="bg-success-subtle text-success rounded-circle d-flex align-items-center justify-content-center"
-                             style="width: 45px; height: 45px;">
-                            <i class="bi bi-plus-lg"></i>
-                        </div>
-                        <div>
-                            <div class="fw-bold">Barang Ditambahkan</div>
-                            <p class="text-muted small mb-1">
-                                Admin menambahkan <strong>Laptop Lenovo ThinkPad</strong> (10 unit)
-                            </p>
-                            <span class="text-muted" style="font-size: 0.75rem;">5 menit yang lalu</span>
-                        </div>
-                    </div>
+                                if(stripos($activity['keterangan'], 'ditambahkan') !== false){
+                                    $label = 'Barang Ditambahkan';
+                                    $icon = 'bi-plus-lg';
+                                    $circleClass = 'bg-success-subtle text-success';
+                                } elseif(stripos($activity['keterangan'], 'dihapus') !== false){
+                                    $label = 'Barang Dihapus';
+                                    $icon = 'bi-trash';
+                                    $circleClass = 'bg-danger-subtle text-danger';
+                                } elseif(stripos($activity['keterangan'], 'dikembalikan') !== false){
+                                    $label = 'Pengembalian';
+                                    $icon = 'bi-person-check';
+                                    $circleClass = 'bg-info-subtle text-info';
+                                } elseif(stripos($activity['keterangan'], 'dipinjam') !== false){
+                                    $label = 'Peminjaman Barang';
+                                    $icon = 'bi-arrow-left-right';
+                                    $circleClass = 'bg-info-subtle text-info';
+                                } elseif(stripos($activity['keterangan'], 'diubah') !== false || stripos($activity['keterangan'], 'diperbarui') !== false){
+                                    $label = 'Data Diperbarui';
+                                    $icon = 'bi-pencil';
+                                    $circleClass = 'bg-warning-subtle text-warning';
+                                }
 
-                    <!-- Item 2 -->
-                    <div class="d-flex gap-3">
-                        <div class="bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center"
-                             style="width: 45px; height: 45px;">
-                            <i class="bi bi-pencil"></i>
-                        </div>
-                        <div>
-                            <div class="fw-bold">Data Diperbarui</div>
-                            <p class="text-muted small mb-1">
-                                Status <strong>Printer Epson</strong> diubah menjadi Maintenance
-                            </p>
-                            <span class="text-muted" style="font-size: 0.75rem;">1 jam yang lalu</span>
-                        </div>
-                    </div>
-
-                    <!-- Item 3 -->
-                    <div class="d-flex gap-3">
-                        <div class="bg-danger-subtle text-danger rounded-circle d-flex align-items-center justify-content-center"
-                             style="width: 45px; height: 45px;">
-                            <i class="bi bi-trash"></i>
-                        </div>
-                        <div>
-                            <div class="fw-bold">Barang Dihapus</div>
-                            <p class="text-muted small mb-1">
-                                Item <strong>Mouse Logitech</strong> telah dihapus dari sistem
-                            </p>
-                            <span class="text-muted" style="font-size: 0.75rem;">Kemarin</span>
-                        </div>
-                    </div>
-
-                    <!-- Item 4 -->
-                    <div class="d-flex gap-3">
-                        <div class="bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center"
-                             style="width: 45px; height: 45px;">
-                            <i class="bi bi-arrow-left-right"></i>
-                        </div>
-                        <div>
-                            <div class="fw-bold">Peminjaman Barang</div>
-                            <p class="text-muted small mb-1">
-                                Proyektor dipinjam oleh <strong>Dosen Andi</strong>
-                            </p>
-                            <span class="text-muted" style="font-size: 0.75rem;">2 hari yang lalu</span>
-                        </div>
-                    </div>
-
+                                $activityTime = date('d M Y', strtotime($activity['tanggal']));
+                            ?>
+                            <div class="d-flex gap-3">
+                                <div class="<?= $circleClass; ?> rounded-circle d-flex align-items-center justify-content-center"
+                                     style="width: 45px; height: 45px;">
+                                    <i class="bi <?= $icon; ?>"></i>
+                                </div>
+                                <div>
+                                    <div class="fw-bold"><?= $label; ?></div>
+                                    <p class="text-muted small mb-1"><?= $text; ?></p>
+                                    <span class="text-muted" style="font-size: 0.75rem;"><?= $activityTime; ?></span>
+                                </div>
+                            </div>
+                        <?php endwhile; ?>
+                    <?php else: ?>
+                        <div class="text-center text-muted">Belum ada aktivitas yang cocok.</div>
+                    <?php endif; ?>
                 </div>
 
             </div>
@@ -323,22 +366,22 @@ if(!isset($_SESSION['login'])){
 
                     <div class="d-flex justify-content-between">
                         <span class="text-muted">Total Aktivitas</span>
-                        <span class="fw-bold">1,245</span>
+                        <span class="fw-bold"><?= number_format($summaryTotal); ?></span>
                     </div>
 
                     <div class="d-flex justify-content-between">
                         <span class="text-muted">Hari Ini</span>
-                        <span class="fw-bold text-primary">32</span>
+                        <span class="fw-bold text-primary"><?= number_format($summaryToday); ?></span>
                     </div>
 
                     <div class="d-flex justify-content-between">
                         <span class="text-muted">Barang Ditambahkan</span>
-                        <span class="fw-bold text-success">120</span>
+                        <span class="fw-bold text-success"><?= number_format($summaryAdded); ?></span>
                     </div>
 
                     <div class="d-flex justify-content-between">
                         <span class="text-muted">Barang Dihapus</span>
-                        <span class="fw-bold text-danger">15</span>
+                        <span class="fw-bold text-danger"><?= number_format($summaryDeleted); ?></span>
                     </div>
 
                 </div>

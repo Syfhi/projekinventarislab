@@ -1,6 +1,7 @@
 <?php
 session_start();
 include '../config/koneksi.php';
+include '../config/alert.php';
 
 // proteksi login
 if(!isset($_SESSION['login'])){
@@ -8,19 +9,16 @@ if(!isset($_SESSION['login'])){
     exit;
 }
 
-// ambil data barang
-$data = mysqli_query($conn, "SELECT * FROM barang");
-
-if(isset($_POST['tambah'])){
-    $nama = $_POST['nama'];
-    $kategori = $_POST['kategori'];
-    $stok = $_POST['stok'];
-
-    mysqli_query($conn, "INSERT INTO barang (nama_barang, kategori, stok) 
-                         VALUES ('$nama', '$kategori', '$stok')");
-
+// handle hapus barang
+if(isset($_GET['hapus'])){
+    $id = $_GET['hapus'];
+    mysqli_query($conn, "DELETE FROM barang WHERE id_barang='$id'");
+    $_SESSION['success'] = 'Barang berhasil dihapus!';
     header("Location: inventaris.php");
 }
+
+// ambil data barang
+$data = mysqli_query($conn, "SELECT * FROM barang");
 ?>
 
 <!DOCTYPE html>
@@ -215,99 +213,147 @@ if(isset($_POST['tambah'])){
     <!-- Main Content -->
     <div id="main-content">
         <!-- Header -->
-<header class="header-top">
-    <h4 class="fw-bold mb-0">Manajemen Inventaris</h4>
-    <div class="d-flex align-items-center gap-3">
-        <div class="search-wrapper">
-            <i class="bi bi-search"></i>
-            <input type="text" class="form-control shadow-none" placeholder="Cari barang...">
-        </div>
-        <button class="btn btn-primary">
-            <i class="bi bi-plus-lg"></i> Tambah Barang
-        </button>
-        <img src="https://ui-avatars.com/api/?name=Admin+Lab&background=0D8ABC&color=fff" class="rounded-circle" width="35">
-    </div>
-</header>
-
-<!-- Filter & Table -->
-<div class="card">
-    <div class="card-body p-0">
-        
-        <!-- Filter Section -->
-        <div class="p-4 border-bottom d-flex flex-wrap gap-2 justify-content-between">
-            <div class="d-flex gap-2">
-                <select class="form-select">
-                    <option>Semua Kategori</option>
-                    <option>Hardware</option>
-                    <option>Software</option>
-                    <option>Networking</option>
-                </select>
-
-                <select class="form-select">
-                    <option>Semua Status</option>
-                    <option>Tersedia</option>
-                    <option>Maintenance</option>
-                    <option>Rusak</option>
-                </select>
+        <header class="header-top">
+            <h4 class="fw-bold mb-0">Manajemen Inventaris</h4>
+            <div class="d-flex align-items-center gap-3">
+                <div class="search-wrapper">
+                    <i class="bi bi-search"></i>
+                    <input type="text" class="form-control shadow-none" placeholder="Cari barang...">
+                </div>
+                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalTambahBarang">
+                    <i class="bi bi-plus-lg"></i> Tambah Barang
+                </button>
+                <img src="https://ui-avatars.com/api/?name=Admin+Lab&background=0D8ABC&color=fff" class="rounded-circle" width="35">
             </div>
+        </header>
 
-            <button class="btn btn-outline-secondary">
-                <i class="bi bi-funnel"></i> Filter
-            </button>
+        <!-- Alert Messages -->
+        <div class="mb-3">
+            <?php showAlert(); ?>
         </div>
 
-        <!-- Table -->
-        <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th>No</th>
-                        <th>Nama Barang</th>
-                        <th>Kategori</th>
-                        <th>Stok</th>
-                        <th>Lokasi</th>
-                        <th>Status</th>
-                        <th class="text-end px-4">Aksi</th>
-                    </tr>
-                </thead>
-                <tbody>
+        <!-- Filter & Table -->
+        <div class="card">
+            <div class="card-body p-0">
+                
+                <!-- Filter Section -->
+                <div class="p-4 border-bottom d-flex flex-wrap gap-2 justify-content-between">
+                    <div class="d-flex gap-2">
+                        <select class="form-select">
+                            <option>Semua Kategori</option>
+                            <option>Hardware</option>
+                            <option>Software</option>
+                            <option>Networking</option>
+                        </select>
 
-                    <?php $no=1; while($row = mysqli_fetch_assoc($data)) { ?>
-                        <tr>
-                            <td><?= $no++; ?></td>
-                            <td><?= $row['nama_barang']; ?></td>
-                            <td><?= $row['kategori']; ?></td>
-                            <td><?= $row['stok']; ?></td>
-                            <td><?= $row['lokasi']; ?></td>
-                            <td><?= $row['kondisi']; ?></td>
-                            
-                            <td class="text-end px-4">
-                            <button class="btn btn-light btn-sm"><i class="bi bi-eye"></i></button>
-                            <button class="btn btn-light btn-sm"><i class="bi bi-pencil"></i></button>
-                            <button class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i><a href="?hapus=<?= $row['id_barang']; ?>" onclick="return confirm('Yakin hapus?')"></a></button>
-                        </td>
-                        </tr>
-                        <?php } ?>
-                        
-                    </tr>
+                        <select class="form-select">
+                            <option>Semua Status</option>
+                            <option>Tersedia</option>
+                            <option>Maintenance</option>
+                            <option>Rusak</option>
+                        </select>
+                    </div>
 
-                </tbody>
-            </table>
-        </div>
+                    <button class="btn btn-outline-secondary">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
 
-        <!-- Footer -->
-        <div class="p-3 bg-light d-flex justify-content-between align-items-center">
-            <small class="text-muted">Menampilkan 1 - 10 dari 120 data</small>
-            <div>
-                <button class="btn btn-sm btn-light">Prev</button>
-                <button class="btn btn-sm btn-primary">1</button>
-                <button class="btn btn-sm btn-light">2</button>
-                <button class="btn btn-sm btn-light">Next</button>
+                <!-- Table -->
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead>
+                            <tr>
+                                <th>No</th>
+                                <th>Nama Barang</th>
+                                <th>Kategori</th>
+                                <th>Stok</th>
+                                <th>Lokasi</th>
+                                <th>Status</th>
+                                <th class="text-end px-4">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            <?php $no=1; while($row = mysqli_fetch_assoc($data)) { ?>
+                                <tr>
+                                    <td><?= $no++; ?></td>
+                                    <td><?= $row['nama_barang']; ?></td>
+                                    <td><?= $row['kategori']; ?></td>
+                                    <td><?= $row['stok']; ?></td>
+                                    <td><?= $row['lokasi']; ?></td>
+                                    <td><span class="badge bg-success"><?= $row['kondisi']; ?></span></td>
+                                    
+                                    <td class="text-end px-4">
+                                        <button class="btn btn-light btn-sm" title="Lihat"><i class="bi bi-eye"></i></button>
+                                        <button class="btn btn-light btn-sm" title="Edit" data-bs-toggle="modal" data-bs-target="#modalEditBarang"><i class="bi bi-pencil"></i></button>
+                                        <a href="?hapus=<?= $row['id_barang']; ?>" class="btn btn-light btn-sm text-danger" title="Hapus" onclick="return confirm('Yakin hapus?')"><i class="bi bi-trash"></i></a>
+                                    </td>
+                                </tr>
+                                <?php } ?>
+
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Footer -->
+                <div class="p-3 bg-light d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Menampilkan data inventaris</small>
+                </div>
+
             </div>
         </div>
-
     </div>
-</div>
+
+    <!-- Modal Tambah Barang -->
+    <div class="modal fade" id="modalTambahBarang" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Tambah Barang</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <form method="POST" action="../process/tambah_barang.php">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="nama" class="form-label">Nama Barang</label>
+                            <input type="text" class="form-control" id="nama" name="nama" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="kategori" class="form-label">Kategori</label>
+                            <select class="form-select" id="kategori" name="kategori" required>
+                                <option value="">Pilih Kategori</option>
+                                <option value="Hardware">Hardware</option>
+                                <option value="Software">Software</option>
+                                <option value="Networking">Networking</option>
+                                <option value="Lainnya">Lainnya</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="stok" class="form-label">Stok</label>
+                            <input type="number" class="form-control" id="stok" name="stok" min="1" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="lokasi" class="form-label">Lokasi</label>
+                            <input type="text" class="form-control" id="lokasi" name="lokasi" placeholder="Contoh: Lemari A, Rak 1">
+                        </div>
+                        <div class="mb-3">
+                            <label for="kondisi" class="form-label">Kondisi</label>
+                            <select class="form-select" id="kondisi" name="kondisi">
+                                <option value="Tersedia">Tersedia</option>
+                                <option value="Maintenance">Maintenance</option>
+                                <option value="Rusak">Rusak</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Batal</button>
+                        <button type="submit" name="tambah" class="btn btn-primary">Simpan</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>

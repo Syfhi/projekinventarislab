@@ -1,11 +1,24 @@
 <?php
 session_start();
+include '../config/koneksi.php';
 
 // PROTEKSI
 if(!isset($_SESSION['login'])){
     header("Location: login.php");
     exit;
 }
+
+// Statistik dashboard
+$totalBarang = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM barang"))['total'];
+$totalTersedia = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM barang WHERE kondisi='Tersedia' OR stok > 0"))['total'];
+$totalMaintenance = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM barang WHERE kondisi='Maintenance'"))['total'];
+$totalKritis = mysqli_fetch_assoc(mysqli_query($conn, "SELECT COUNT(*) AS total FROM barang WHERE stok <= 5 OR kondisi='Rusak'"))['total'];
+
+// Inventaris terbaru
+$latestInventory = mysqli_query($conn, "SELECT * FROM barang ORDER BY id_barang DESC LIMIT 3");
+
+// Aktivitas terakhir
+$recentActivities = mysqli_query($conn, "SELECT r.*, b.nama_barang, p.status FROM riwayat r LEFT JOIN peminjaman p ON r.id_peminjaman = p.id_peminjaman LEFT JOIN barang b ON p.id_barang = b.id_barang ORDER BY r.tanggal DESC LIMIT 3");
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -223,7 +236,7 @@ if(!isset($_SESSION['login'])){
                         <i class="bi bi-box-seam"></i>
                     </div>
                     <div class="text-secondary small fw-medium">Total Barang</div>
-                    <h3 class="fw-bold mb-0">1,240</h3>
+                    <h3 class="fw-bold mb-0"><?= number_format($totalBarang); ?></h3>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl-3">
@@ -231,8 +244,8 @@ if(!isset($_SESSION['login'])){
                     <div class="icon-box bg-success-subtle text-success">
                         <i class="bi bi-check-circle"></i>
                     </div>
-                    <div class="text-secondary small fw-medium">Kondisi Baik</div>
-                    <h3 class="fw-bold mb-0">1,120</h3>
+                    <div class="text-secondary small fw-medium">Tersedia</div>
+                    <h3 class="fw-bold mb-0"><?= number_format($totalTersedia); ?></h3>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl-3">
@@ -240,8 +253,8 @@ if(!isset($_SESSION['login'])){
                     <div class="icon-box bg-warning-subtle text-warning">
                         <i class="bi bi-tools"></i>
                     </div>
-                    <div class="text-secondary small fw-medium">Perlu Perbaikan</div>
-                    <h3 class="fw-bold mb-0">86</h3>
+                    <div class="text-secondary small fw-medium">Maintenance</div>
+                    <h3 class="fw-bold mb-0"><?= number_format($totalMaintenance); ?></h3>
                 </div>
             </div>
             <div class="col-12 col-md-6 col-xl-3">
@@ -250,7 +263,7 @@ if(!isset($_SESSION['login'])){
                         <i class="bi bi-exclamation-triangle"></i>
                     </div>
                     <div class="text-secondary small fw-medium">Stok Kritis</div>
-                    <h3 class="fw-bold mb-0">12</h3>
+                    <h3 class="fw-bold mb-0"><?= number_format($totalKritis); ?></h3>
                 </div>
             </div>
         </div>
@@ -262,7 +275,7 @@ if(!isset($_SESSION['login'])){
                     <div class="card-body p-0">
                         <div class="p-4 d-flex justify-content-between align-items-center border-bottom">
                             <h5 class="fw-bold mb-0">Inventaris Terbaru</h5>
-                            <button class="btn btn-sm btn-primary">Tambah Barang</button>
+                            <a href="inventaris.php" class="btn btn-sm btn-primary">Lihat Inventaris</a>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">
@@ -276,50 +289,44 @@ if(!isset($_SESSION['login'])){
                                     </tr>
                                 </thead>
                                 <tbody>
+                                <?php if(mysqli_num_rows($latestInventory) > 0): ?>
+                                    <?php while($item = mysqli_fetch_assoc($latestInventory)): ?>
+                                        <?php
+                                            $statusBadge = 'bg-secondary-subtle text-secondary';
+                                            $statusText = $item['kondisi'];
+
+                                            if(strtolower($item['kondisi']) === 'tersedia'){
+                                                $statusBadge = 'bg-success-subtle text-success';
+                                            } elseif(strtolower($item['kondisi']) === 'maintenance'){
+                                                $statusBadge = 'bg-warning-subtle text-warning';
+                                            } elseif(strtolower($item['kondisi']) === 'rusak' || $item['stok'] <= 0){
+                                                $statusBadge = 'bg-danger-subtle text-danger';
+                                                $statusText = 'Stok Habis';
+                                            }
+                                        ?>
+                                        <tr>
+                                            <td class="px-4">
+                                                <div class="fw-bold"><?= htmlspecialchars($item['nama_barang']); ?></div>
+                                                <div class="text-muted small">ID: <?= htmlspecialchars($item['id_barang']); ?></div>
+                                            </td>
+                                            <td><?= htmlspecialchars($item['kategori']); ?></td>
+                                            <td><span class="fw-semibold"><?= number_format($item['stok']); ?></span></td>
+                                            <td><span class="badge <?= $statusBadge; ?> badge-status text-uppercase" style="font-size: 0.65rem;"><?= htmlspecialchars($statusText); ?></span></td>
+                                            <td class="text-end px-4">
+                                                <a href="inventaris.php" class="btn btn-light btn-sm" title="Lihat"><i class="bi bi-eye"></i></a>
+                                            </td>
+                                        </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
                                     <tr>
-                                        <td class="px-4">
-                                            <div class="fw-bold">Monitor Dell UltraSharp 24"</div>
-                                            <div class="text-muted small">ID: LAB-MON-001</div>
-                                        </td>
-                                        <td>Hardware</td>
-                                        <td><span class="fw-semibold">45</span></td>
-                                        <td><span class="badge bg-success-subtle text-success badge-status text-uppercase" style="font-size: 0.65rem;">Tersedia</span></td>
-                                        <td class="text-end px-4">
-                                            <button class="btn btn-light btn-sm"><i class="bi bi-pencil"></i></button>
-                                            <button class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
-                                        </td>
+                                        <td colspan="5" class="text-center py-4 text-muted">Belum ada data inventaris.</td>
                                     </tr>
-                                    <tr>
-                                        <td class="px-4">
-                                            <div class="fw-bold">PC Desktop i7 Gen 12</div>
-                                            <div class="text-muted small">ID: LAB-PC-024</div>
-                                        </td>
-                                        <td>Unit PC</td>
-                                        <td><span class="fw-semibold">20</span></td>
-                                        <td><span class="badge bg-warning-subtle text-warning badge-status text-uppercase" style="font-size: 0.65rem;">Maintenance</span></td>
-                                        <td class="text-end px-4">
-                                            <button class="btn btn-light btn-sm"><i class="bi bi-pencil"></i></button>
-                                            <button class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td class="px-4">
-                                            <div class="fw-bold">TP-Link Router AX1500</div>
-                                            <div class="text-muted small">ID: LAB-NET-005</div>
-                                        </td>
-                                        <td>Networking</td>
-                                        <td><span class="fw-semibold">2</span></td>
-                                        <td><span class="badge bg-danger-subtle text-danger badge-status text-uppercase" style="font-size: 0.65rem;">Stok Habis</span></td>
-                                        <td class="text-end px-4">
-                                            <button class="btn btn-light btn-sm"><i class="bi bi-pencil"></i></button>
-                                            <button class="btn btn-light btn-sm text-danger"><i class="bi bi-trash"></i></button>
-                                        </td>
-                                    </tr>
+                                <?php endif; ?>
                                 </tbody>
                             </table>
                         </div>
                         <div class="p-3 bg-light text-center">
-                            <a href="inventaris.html" class="text-decoration-none small fw-bold">Lihat Semua Inventaris</a>
+                            <a href="inventaris.php" class="text-decoration-none small fw-bold">Lihat Semua Inventaris</a>
                         </div>
                     </div>
                 </div>
@@ -331,36 +338,39 @@ if(!isset($_SESSION['login'])){
                     <div class="card-body">
                         <h5 class="fw-bold mb-4">Aktivitas Terakhir</h5>
                         <div class="d-flex flex-column gap-4">
-                            <div class="d-flex gap-3">
-                                <div class="bg-primary-subtle text-primary rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;">
-                                    <i class="bi bi-plus"></i>
-                                </div>
-                                <div>
-                                    <div class="small fw-bold">Barang Baru Ditambahkan</div>
-                                    <p class="small text-muted mb-0">Keyboard Mechanical Rexus (5 Unit) oleh Admin</p>
-                                    <span class="text-muted" style="font-size: 0.7rem;">10 Menit yang lalu</span>
-                                </div>
-                            </div>
-                            <div class="d-flex gap-3">
-                                <div class="bg-warning-subtle text-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;">
-                                    <i class="bi bi-arrow-repeat"></i>
-                                </div>
-                                <div>
-                                    <div class="small fw-bold">Status Perubahan</div>
-                                    <p class="small text-muted mb-0">PC-024 diubah ke Maintenance oleh Teknisi</p>
-                                    <span class="text-muted" style="font-size: 0.7rem;">2 Jam yang lalu</span>
-                                </div>
-                            </div>
-                            <div class="d-flex gap-3">
-                                <div class="bg-info-subtle text-info rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;">
-                                    <i class="bi bi-person-check"></i>
-                                </div>
-                                <div>
-                                    <div class="small fw-bold">Peminjaman Baru</div>
-                                    <p class="small text-muted mb-0">Proyektor Epson dipinjam oleh Dosen Budi</p>
-                                    <span class="text-muted" style="font-size: 0.7rem;">Kemarin</span>
-                                </div>
-                            </div>
+                            <?php if(mysqli_num_rows($recentActivities) > 0): ?>
+                                <?php while($activity = mysqli_fetch_assoc($recentActivities)): ?>
+                                    <?php
+                                        $icon = 'bi-arrow-repeat';
+                                        $circleClass = 'bg-warning-subtle text-warning';
+                                        $title = 'Aktivitas Baru';
+
+                                        if(stripos($activity['keterangan'], 'ditambahkan') !== false) {
+                                            $icon = 'bi-plus';
+                                            $circleClass = 'bg-primary-subtle text-primary';
+                                            $title = 'Barang Baru Ditambahkan';
+                                        } elseif(stripos($activity['keterangan'], 'dikembalikan') !== false) {
+                                            $icon = 'bi-person-check';
+                                            $circleClass = 'bg-info-subtle text-info';
+                                            $title = 'Peminjaman Dikembalikan';
+                                        }
+
+                                        $timeLabel = date('d M Y', strtotime($activity['tanggal']));
+                                    ?>
+                                    <div class="d-flex gap-3">
+                                        <div class="<?= $circleClass; ?> rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; flex-shrink: 0;">
+                                            <i class="bi <?= $icon; ?>"></i>
+                                        </div>
+                                        <div>
+                                            <div class="small fw-bold"><?= htmlspecialchars($title); ?></div>
+                                            <p class="small text-muted mb-0"><?= htmlspecialchars($activity['keterangan']); ?></p>
+                                            <span class="text-muted" style="font-size: 0.7rem;"><?= $timeLabel; ?></span>
+                                        </div>
+                                    </div>
+                                <?php endwhile; ?>
+                            <?php else: ?>
+                                <div class="text-center text-muted">Belum ada aktivitas terbaru.</div>
+                            <?php endif; ?>
                         </div>
                     </div>
                 </div>

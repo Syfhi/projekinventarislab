@@ -1,7 +1,18 @@
 <?php
 session_start();
+include '../config/koneksi.php';
+include '../config/alert.php';
 
 if(!isset($_SESSION['login'])){
+    header("Location: login.php");
+    exit;
+}
+
+$id_user = $_SESSION['id_user'];
+$userQuery = mysqli_query($conn, "SELECT * FROM users WHERE id_user='$id_user'");
+$user = mysqli_fetch_assoc($userQuery);
+
+if(!$user){
     header("Location: login.php");
     exit;
 }
@@ -199,128 +210,87 @@ if(!isset($_SESSION['login'])){
     <!-- Main Content -->
     <div id="main-content">
         <!-- Header -->
-<header class="header-top">
-    <h4 class="fw-bold mb-0">Pengaturan Sistem</h4>
-    <div class="d-flex align-items-center gap-3">
-        <img src="https://ui-avatars.com/api/?name=Admin+Lab&background=0D8ABC&color=fff" class="rounded-circle" width="35">
-    </div>
-</header>
-
-<div class="row g-4">
-
-    <!-- Profile Settings -->
-    <div class="col-12 col-xl-4">
-        <div class="card">
-            <div class="card-body text-center">
-                <img src="https://ui-avatars.com/api/?name=Admin+Lab&background=0D8ABC&color=fff"
-                     class="rounded-circle mb-3" width="80">
-                <h5 class="fw-bold mb-1">Admin Lab</h5>
-                <p class="text-muted small">Administrator</p>
-
-                <button class="btn btn-outline-primary btn-sm mt-2">
-                    <i class="bi bi-pencil"></i> Edit Profil
-                </button>
+        <header class="header-top">
+            <h4 class="fw-bold mb-0">Pengaturan Sistem</h4>
+            <div class="d-flex align-items-center gap-3">
+                <img src="https://ui-avatars.com/api/?name=<?= urlencode($user['nama']); ?>&background=0D8ABC&color=fff" class="rounded-circle" width="35">
             </div>
-        </div>
+        </header>
 
-        <!-- Security -->
-        <div class="card mt-4">
-            <div class="card-body">
-                <h6 class="fw-bold mb-3">Keamanan</h6>
+        <div class="row g-4">
 
-                <div class="d-flex justify-content-between align-items-center mb-3">
-                    <span class="small">Ubah Password</span>
-                    <button class="btn btn-sm btn-light">Ubah</button>
-                </div>
+            <div class="col-12">
+                <?php showAlert(); ?>
+            </div>
 
-                <div class="d-flex justify-content-between align-items-center">
-                    <span class="small">2FA (Verifikasi 2 Langkah)</span>
-                    <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox">
+            <div class="col-12 col-xl-4">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <img src="https://ui-avatars.com/api/?name=<?= urlencode($user['nama']); ?>&background=0D8ABC&color=fff" class="rounded-circle mb-3" width="80">
+                        <h5 class="fw-bold mb-1"><?= htmlspecialchars($user['nama']); ?></h5>
+                        <p class="text-muted small"><?= htmlspecialchars(ucfirst($user['role'] ?: 'User')); ?></p>
+                        <p class="text-muted small mb-3"><?= htmlspecialchars($user['email']); ?></p>
+                        <a href="#profil" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-pencil"></i> Edit Profil
+                        </a>
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- System Settings -->
-    <div class="col-12 col-xl-8">
-        <div class="card">
-            <div class="card-body">
-
-                <h5 class="fw-bold mb-4">Pengaturan Umum</h5>
-
-                <div class="row g-3">
-
-                    <div class="col-md-6">
-                        <label class="form-label">Nama Sistem</label>
-                        <input type="text" class="form-control" value="LabManager">
+            <div class="col-12 col-xl-8">
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-4">Ubah Profil</h5>
+                        <form method="POST" action="../process/proses_pengaturan.php">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Nama</label>
+                                    <input type="text" class="form-control" name="nama" value="<?= htmlspecialchars($user['nama']); ?>" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email</label>
+                                    <input type="email" class="form-control" name="email" value="<?= htmlspecialchars($user['email']); ?>" required>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-end">
+                                <button type="submit" name="update_profil" class="btn btn-primary">
+                                    <i class="bi bi-save"></i> Simpan Profil
+                                </button>
+                            </div>
+                        </form>
                     </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">Email Admin</label>
-                        <input type="email" class="form-control" value="admin@lab.com">
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">Bahasa</label>
-                        <select class="form-select">
-                            <option>Indonesia</option>
-                            <option>English</option>
-                        </select>
-                    </div>
-
-                    <div class="col-md-6">
-                        <label class="form-label">Zona Waktu</label>
-                        <select class="form-select">
-                            <option>WIB (GMT+7)</option>
-                            <option>WITA (GMT+8)</option>
-                            <option>WIT (GMT+9)</option>
-                        </select>
-                    </div>
-
                 </div>
 
-                <hr class="my-4">
-
-                <h6 class="fw-bold mb-3">Notifikasi</h6>
-
-                <div class="d-flex flex-column gap-3">
-
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="small">Notifikasi Email</span>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" checked>
-                        </div>
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="fw-bold mb-4">Ubah Password</h5>
+                        <form method="POST" action="../process/proses_pengaturan.php">
+                            <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label class="form-label">Password Lama</label>
+                                    <input type="password" class="form-control" name="password_lama" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Password Baru</label>
+                                    <input type="password" class="form-control" name="password_baru" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Konfirmasi Password</label>
+                                    <input type="password" class="form-control" name="konfirmasi_password" required>
+                                </div>
+                            </div>
+                            <div class="mt-4 text-end">
+                                <button type="submit" name="update_password" class="btn btn-primary">
+                                    <i class="bi bi-lock"></i> Ubah Password
+                                </button>
+                            </div>
+                        </form>
                     </div>
-
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="small">Notifikasi Peminjaman</span>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" checked>
-                        </div>
-                    </div>
-
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span class="small">Peringatan Stok Habis</span>
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox">
-                        </div>
-                    </div>
-
                 </div>
-
-                <div class="mt-4 text-end">
-                    <button class="btn btn-primary">
-                        <i class="bi bi-save"></i> Simpan Perubahan
-                    </button>
-                </div>
-
             </div>
+
         </div>
     </div>
-
-</div>
 
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
